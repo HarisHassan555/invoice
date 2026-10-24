@@ -1,5 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import CloudSyncStatus from './CloudSyncStatus'
+import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
 function SidebarLink({ to, end, children }) {
@@ -23,6 +24,8 @@ function SidebarLink({ to, end, children }) {
 
 export default function Layout() {
   const { theme, toggleTheme } = useTheme()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <div className="flex min-h-screen w-full">
@@ -69,6 +72,19 @@ export default function Layout() {
             <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium capitalize text-white">
               {theme}
             </span>
+          </button>
+          <div className="mt-1 px-3 py-2 text-xs text-slate-500">
+            Signed in as <span className="text-slate-300">{user?.username}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              logout()
+              navigate('/login', { replace: true })
+            }}
+            className="mt-1 flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            Sign out
           </button>
           </div>
         </div>
