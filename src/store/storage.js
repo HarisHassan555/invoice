@@ -1,3 +1,5 @@
+/** Legacy browser persistence (removed). Used only for one-time migration into Firestore. */
+
 const STORAGE_KEY = 'invoice-app-state'
 
 function normalizeSlice(data) {
@@ -6,10 +8,10 @@ function normalizeSlice(data) {
   return { items: [] }
 }
 
-export function loadPersistedState() {
+export function loadLegacyLocalState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return undefined
+    if (!raw) return null
     const parsed = JSON.parse(raw)
     return {
       companies: normalizeSlice(parsed.companies),
@@ -18,18 +20,14 @@ export function loadPersistedState() {
       invoices: normalizeSlice(parsed.invoices),
     }
   } catch {
-    return undefined
+    return null
   }
 }
 
-export function persistState(state) {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      companies: state.companies,
-      customers: state.customers,
-      products: state.products,
-      invoices: state.invoices,
-    }),
-  )
+export function clearLegacyLocalState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
 }

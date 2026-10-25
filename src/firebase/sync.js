@@ -7,16 +7,16 @@ import {
   getDocs,
   setDoc,
 } from 'firebase/firestore'
+import { SEEDED_USERNAME } from '../auth/credentials'
 import { setCompanyItems } from '../store/slices/companiesSlice'
 import { setCustomerItems } from '../store/slices/customersSlice'
 import { setInvoiceItems } from '../store/slices/invoicesSlice'
 import { setProductItems } from '../store/slices/productsSlice'
 import { seedMasterDataIfEmpty } from '../data/seedMasterData'
+import { clearLegacyLocalState, loadLegacyLocalState } from '../store/storage'
 import { mergeRemoteWithLocal } from './cloudMerge'
 import { sanitizeSliceForCloud } from './cloudSanitize'
 import { auth, db } from './config'
-import { getDeviceId } from './deviceId'
-
 const SLICES = ['companies', 'customers', 'products', 'invoices']
 
 let remoteUpdate = false
@@ -49,6 +49,14 @@ function payloadToDispatches(payload, dispatch) {
   dispatch(setCustomerItems(payload.customers ?? []))
   dispatch(setProductItems(payload.products ?? []))
   dispatch(setInvoiceItems(payload.invoices ?? []))
+}
+
+function ensureStoreSubscription(store) {
+  if (unsubscribeStore) return
+  unsubscribeStore = store.subscribe(() => {
+    if (!hydrated || remoteUpdate) return
+    scheduleWrite(store)
+  })
 }
 
 async function fetchCollection(pathSegments, sliceName) {
@@ -127,7 +135,7 @@ export async function flushCloudWrite(store) {
 }
 
 function scheduleWrite(store) {
-  if (!basePath) return
+  if (!basePath || !hydrated) return
   clearTimeout(writeTimer)
   writeTimer = setTimeout(() => {
     flushCloudWrite(store)
@@ -135,8 +143,19 @@ function scheduleWrite(store) {
 }
 
 async function loadFromFirestore(pathSegments, store) {
-  const localState = store.getState()
   const remoteState = await loadRemoteState(pathSegments)
+  const legacy = loadLegacyLocalState()
+
+  let localState = store.getState()
+  if (legacy) {
+    localState = {
+      companies: legacy.companies,
+      customers: legacy.customers,
+      products: legacy.products,
+      invoices: legacy.invoices,
+    }
+  }
+
   const merged = mergeRemoteWithLocal(localState, remoteState)
 
   remoteUpdate = true
@@ -144,12 +163,13 @@ async function loadFromFirestore(pathSegments, store) {
   remoteUpdate = false
 
   await pushToCloud(store)
+
+  if (legacy) clearLegacyLocalState()
 }
 
 async function resolveBasePath() {
   try {
-    const session = auth.currentUser ?? (await signInAnonymously(auth)).user
-    return { path: ['users', session.uid], mode: 'auth' }
+    await signInAnonymously(auth)
   } catch (err) {
     const code = err?.code ?? ''
     const useDeviceFallback =
@@ -158,10 +178,10 @@ async function resolveBasePath() {
       code === 'auth/admin-restricted-operation'
 
     if (!useDeviceFallback) throw err
-
-    console.warn('Anonymous auth unavailable; syncing with device id instead.', err)
-    return { path: ['devices', getDeviceId()], mode: 'device' }
+    console.warn('Anonymous auth unavailable; using shared account path only.', err)
   }
+
+  return { path: ['accounts', SEEDED_USERNAME], mode: 'cloud' }
 }
 
 async function attachCloudSync(store) {
@@ -178,12 +198,32 @@ async function attachCloudSync(store) {
 
   hydrated = true
   setCloudStatus('connected', null, mode)
+  ensureStoreSubscription(store)
+}
 
-  if (!unsubscribeStore) {
-    unsubscribeStore = store.subscribe(() => {
-      if (!hydrated || remoteUpdate) return
-      scheduleWrite(store)
-    })
+export async function retryCloudSync(store) {
+  setCloudStatus('connecting', null, cloudSyncState.mode)
+  hydrated = false
+  try {
+    if (!basePath) {
+      const { path, mode } = await resolveBasePath()
+      basePath = path
+      cloudSyncState.mode = mode
+    }
+    await loadFromFirestore(basePath, store)
+    remoteUpdate = true
+    const seeded = seedMasterDataIfEmpty(store)
+    remoteUpdate = false
+    if (seeded) await pushToCloud(store)
+    hydrated = true
+    setCloudStatus('connected', null, cloudSyncState.mode)
+    ensureStoreSubscription(store)
+    return true
+  } catch (err) {
+    console.error('Firebase sync retry failed:', err)
+    hydrated = false
+    setCloudStatus('error', err?.message ?? 'Cloud sync unavailable', cloudSyncState.mode)
+    return false
   }
 }
 
@@ -200,9 +240,8 @@ export function startFirebaseSync(store, { onReady, onError }) {
       onReady?.(cloudSyncState)
     } catch (err) {
       console.error('Firebase sync failed:', err)
-      seedMasterDataIfEmpty(store)
-      setCloudStatus('error', err?.message ?? 'Cloud sync unavailable', 'local')
-      hydrated = true
+      hydrated = false
+      setCloudStatus('error', err?.message ?? 'Cloud sync unavailable', null)
       onError?.(err)
       onReady?.(cloudSyncState)
     }

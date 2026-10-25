@@ -4,8 +4,8 @@ function mergeCompany(local, remote) {
   if (!local) return remote
   return {
     ...remote,
-    logoDataUrl: local.logoDataUrl || remote.logoDataUrl || '',
-    signatureDataUrl: local.signatureDataUrl || remote.signatureDataUrl || '',
+    logoDataUrl: remote.logoDataUrl || local.logoDataUrl || '',
+    signatureDataUrl: remote.signatureDataUrl || local.signatureDataUrl || '',
   }
 }
 
@@ -15,7 +15,7 @@ function mergeProduct(local, remote) {
   if (!local) return remote
   return {
     ...remote,
-    imageDataUrl: local.imageDataUrl || remote.imageDataUrl || '',
+    imageDataUrl: remote.imageDataUrl || local.imageDataUrl || '',
   }
 }
 
@@ -25,7 +25,7 @@ function mergeInvoiceLine(localLine, remoteLine) {
   if (!localLine) return remoteLine
   return {
     ...remoteLine,
-    imageDataUrl: localLine.imageDataUrl || remoteLine.imageDataUrl || '',
+    imageDataUrl: remoteLine.imageDataUrl || localLine.imageDataUrl || '',
   }
 }
 
