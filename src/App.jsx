@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import RequireAuth from './components/RequireAuth'
+import DraftInvoiceListPage from './pages/DraftInvoiceListPage'
+import InactiveInvoiceListPage from './pages/InactiveInvoiceListPage'
 import CreateInvoicePage from './pages/CreateInvoicePage'
 import EditInvoicePage from './pages/EditInvoicePage'
 import InvoiceDetailPage from './pages/InvoiceDetailPage'
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="master/customer" element={<MasterCustomerPage />} />
           <Route path="master/product" element={<MasterProductPage />} />
           <Route path="invoices" element={<InvoiceListPage />} />
+          <Route path="invoices/drafts" element={<DraftInvoiceListPage />} />
+          <Route path="invoices/inactive" element={<InactiveInvoiceListPage />} />
           <Route path="invoices/new" element={<CreateInvoicePage />} />
           <Route path="invoices/:id/edit" element={<EditInvoicePage />} />
           <Route path="invoices/:id" element={<InvoiceDetailPage />} />

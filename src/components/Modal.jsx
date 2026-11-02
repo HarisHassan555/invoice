@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-export default function Modal({ open, title, onClose, children }) {
+export default function Modal({ open, title, onClose, children, panelClassName = 'max-w-lg' }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => {
@@ -29,7 +29,7 @@ export default function Modal({ open, title, onClose, children }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="panel relative z-10 flex max-h-[min(90vh,720px)] w-full max-w-lg flex-col overflow-hidden shadow-xl"
+        className={`panel relative z-10 flex max-h-[min(90vh,720px)] w-full flex-col overflow-hidden shadow-xl ${panelClassName}`}
       >
         <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-700">
           <h3 id="modal-title" className="text-lg font-semibold text-slate-900 dark:text-slate-50">

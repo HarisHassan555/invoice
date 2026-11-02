@@ -1,13 +1,19 @@
-import { useSelector } from 'react-redux'
+import { useMemo } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import DataTable from '../components/DataTable'
-import InvoiceStatusBadge from '../components/InvoiceStatusBadge'
+import { DeliveryStatusBadge, PaymentStatusBadge } from '../components/InvoiceStatusBadge'
 import PageHeader from '../components/PageHeader'
+import { removeInvoice, updateInvoice } from '../store/slices/invoicesSlice'
+import { publishedInvoices } from '../utils/invoiceDraft'
 import { partyDisplayName, resolveCompany, resolveCustomer } from '../utils/invoiceParty'
+import { deliveryTotalsForInvoice } from '../utils/invoiceDeliveryLog'
 import { formatMoney, invoiceTotal } from '../utils/invoiceMath'
 
 export default function InvoiceListPage() {
-  const invoices = useSelector((s) => s.invoices.items)
+  const dispatch = useDispatch()
+  const allInvoices = useSelector((s) => s.invoices.items)
+  const invoices = useMemo(() => publishedInvoices(allInvoices), [allInvoices])
   const companies = useSelector((s) => s.companies.items)
   const customers = useSelector((s) => s.customers.items)
 
@@ -39,9 +45,29 @@ export default function InvoiceListPage() {
                 : new Date(row.createdAt).toLocaleDateString(),
           },
           {
-            key: 'status',
-            label: 'Status',
-            render: (row) => <InvoiceStatusBadge status={row.status} />,
+            key: 'paymentStatus',
+            label: 'Payment',
+            render: (row) => <PaymentStatusBadge status={row.paymentStatus} />,
+          },
+          {
+            key: 'deliveryStatus',
+            label: 'Delivery',
+            render: (row) => {
+              const totals = deliveryTotalsForInvoice(row)
+              return (
+                <div className="space-y-1">
+                  <DeliveryStatusBadge
+                    status={row.deliveryStatus}
+                    legacyStatus={row.status}
+                  />
+                  {totals.ordered > 0 ? (
+                    <p className="text-[11px] text-slate-500">
+                      {totals.delivered}/{totals.ordered} delivered · {totals.pending} pending
+                    </p>
+                  ) : null}
+                </div>
+              )
+            },
           },
           {
             key: 'company',
@@ -76,6 +102,35 @@ export default function InvoiceListPage() {
                 >
                   Details
                 </Link>
+                <button
+                  type="button"
+                  className="btn-secondary inline-flex px-3 py-1.5"
+                  onClick={() =>
+                    dispatch(
+                      updateInvoice({
+                        ...row,
+                        isInactive: true,
+                      }),
+                    )
+                  }
+                >
+                  Inactive
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary inline-flex px-3 py-1.5 text-red-700 dark:text-red-400"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Delete invoice ${row.invoiceNumber} permanently? This cannot be undone.`,
+                      )
+                    ) {
+                      dispatch(removeInvoice(row.id))
+                    }
+                  }}
+                >
+                  Delete
+                </button>
               </div>
             ),
           },

@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import DataTable from '../components/DataTable'
-import ImageUploadField from '../components/ImageUploadField'
-import { inputClass } from '../components/MasterDataForm'
+import ProductFormFields, { emptyProductForm } from '../components/ProductFormFields'
 import Modal from '../components/Modal'
 import PageHeader from '../components/PageHeader'
 import { addProduct, removeProduct, updateProduct } from '../store/slices/productsSlice'
 import { formatMoney } from '../utils/invoiceMath'
 
-const empty = { name: '', description: '', price: '', imageDataUrl: '' }
+const empty = emptyProductForm
 
 export default function MasterProductPage() {
   const dispatch = useDispatch()
@@ -117,44 +116,7 @@ export default function MasterProductPage() {
           }}
           className="space-y-4"
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="sm:col-span-2">
-              <span className="field-label">Product name</span>
-              <input
-                className={inputClass}
-                value={values.name}
-                onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
-                required
-              />
-            </label>
-            <label className="sm:col-span-2">
-              <span className="field-label">Description</span>
-              <textarea
-                className={inputClass}
-                rows={2}
-                value={values.description}
-                onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
-              />
-            </label>
-            <label>
-              <span className="field-label">Default price</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className={inputClass}
-                value={values.price}
-                onChange={(e) => setValues((v) => ({ ...v, price: e.target.value }))}
-                required
-              />
-            </label>
-            <ImageUploadField
-              label="Product image"
-              hint="Shown on invoice line items next to the product name."
-              value={values.imageDataUrl}
-              onChange={(v) => setValues((prev) => ({ ...prev, imageDataUrl: v }))}
-            />
-          </div>
+          <ProductFormFields values={values} onChange={setValues} idPrefix="master-product" />
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-700">
             <button type="button" onClick={closeModal} className="btn-secondary">
               Cancel

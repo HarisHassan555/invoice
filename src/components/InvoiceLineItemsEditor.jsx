@@ -1,8 +1,18 @@
 import { inputClass } from './MasterDataForm'
 import { productToLine } from '../utils/invoiceLines'
 import { formatMoney, lineTotal } from '../utils/invoiceMath'
+import { clampDeliveredQuantity, pendingQuantity } from '../utils/invoiceStatus'
 
-export default function InvoiceLineItemsEditor({ products, lines, onChange, disabled }) {
+export const CREATE_PRODUCT_OPTION = '__create_product__'
+
+export default function InvoiceLineItemsEditor({
+  products,
+  lines,
+  onChange,
+  disabled,
+  showDelivery = false,
+  onRequestCreateProduct,
+}) {
   const setLines = onChange
 
   const addProductLine = (productId) => {
@@ -14,14 +24,27 @@ export default function InvoiceLineItemsEditor({ products, lines, onChange, disa
 
   const updateLine = (lineId, field, value) => {
     setLines((prev) =>
-      prev.map((l) =>
-        l.lineId === lineId
-          ? {
-              ...l,
-              [field]: field === 'unitPrice' ? Number(value) || 0 : Number(value) || 0,
-            }
-          : l,
-      ),
+      prev.map((l) => {
+        if (l.lineId !== lineId) return l
+        if (field === 'quantity') {
+          const quantity = Math.max(1, Number(value) || 0)
+          return {
+            ...l,
+            quantity,
+            deliveredQuantity: clampDeliveredQuantity(l.deliveredQuantity, quantity),
+          }
+        }
+        if (field === 'deliveredQuantity') {
+          return {
+            ...l,
+            deliveredQuantity: clampDeliveredQuantity(value, l.quantity),
+          }
+        }
+        if (field === 'unitPrice') {
+          return { ...l, unitPrice: Number(value) || 0 }
+        }
+        return { ...l, [field]: Number(value) || 0 }
+      }),
     )
   }
 
@@ -31,7 +54,7 @@ export default function InvoiceLineItemsEditor({ products, lines, onChange, disa
     setLines((prev) =>
       prev.map((l) => {
         if (l.lineId !== lineId) return l
-        return productToLine(product, l.quantity, lineId)
+        return productToLine(product, l.quantity, lineId, l.deliveredQuantity)
       }),
     )
   }
@@ -40,7 +63,7 @@ export default function InvoiceLineItemsEditor({ products, lines, onChange, disa
     setLines((prev) => prev.filter((l) => l.lineId !== lineId))
   }
 
-  const missingProducts = !products.length
+  const missingProducts = !products.length && !onRequestCreateProduct
 
   return (
     <div className="panel p-6">
@@ -50,9 +73,15 @@ export default function InvoiceLineItemsEditor({ products, lines, onChange, disa
           <select
             className={inputClass}
             defaultValue=""
-            disabled={disabled || missingProducts}
+            disabled={disabled || (missingProducts && !onRequestCreateProduct)}
             onChange={(e) => {
-              addProductLine(e.target.value)
+              const value = e.target.value
+              if (value === CREATE_PRODUCT_OPTION) {
+                onRequestCreateProduct?.()
+                e.target.value = ''
+                return
+              }
+              addProductLine(value)
               e.target.value = ''
             }}
           >
@@ -62,13 +91,17 @@ export default function InvoiceLineItemsEditor({ products, lines, onChange, disa
                 {p.name} — {formatMoney(Number(p.price))}
               </option>
             ))}
+            {onRequestCreateProduct ? (
+              <option value={CREATE_PRODUCT_OPTION}>+ Create new product…</option>
+            ) : null}
           </select>
         </label>
       </div>
 
       {lines.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          No line items yet. Add one or more products.
+          No line items yet. Add a product from the list
+          {onRequestCreateProduct ? ' or create a new one' : ''}.
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -77,6 +110,12 @@ export default function InvoiceLineItemsEditor({ products, lines, onChange, disa
               <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-slate-700 dark:text-slate-400">
                 <th className="pb-2 pr-3">Product</th>
                 <th className="pb-2 pr-4">Qty</th>
+                {showDelivery ? (
+                  <>
+                    <th className="pb-2 pr-4">Delivered</th>
+                    <th className="pb-2 pr-4">Pending</th>
+                  </>
+                ) : null}
                 <th className="pb-2 pr-4">Unit price</th>
                 <th className="pb-2 pr-4">Line total</th>
                 <th className="pb-2" />
@@ -123,6 +162,27 @@ export default function InvoiceLineItemsEditor({ products, lines, onChange, disa
                       onChange={(e) => updateLine(line.lineId, 'quantity', e.target.value)}
                     />
                   </td>
+                  {showDelivery ? (
+                    <>
+                      <td className="py-3 pr-4">
+                        <input
+                          type="number"
+                          min="0"
+                          max={line.quantity}
+                          step="1"
+                          className="field-input w-20 py-1"
+                          value={line.deliveredQuantity ?? 0}
+                          disabled={disabled}
+                          onChange={(e) =>
+                            updateLine(line.lineId, 'deliveredQuantity', e.target.value)
+                          }
+                        />
+                      </td>
+                      <td className="py-3 pr-4 text-slate-600 dark:text-slate-400">
+                        {pendingQuantity(line)}
+                      </td>
+                    </>
+                  ) : null}
                   <td className="py-3 pr-4">
                     <input
                       type="number"

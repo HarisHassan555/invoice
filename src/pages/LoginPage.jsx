@@ -20,7 +20,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+    <div className="flex h-full flex-col items-center justify-center overflow-y-auto bg-slate-50 px-4 dark:bg-slate-950">
       <div className="absolute right-4 top-4">
         <button
           type="button"

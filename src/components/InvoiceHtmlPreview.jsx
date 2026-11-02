@@ -3,7 +3,7 @@ import {
   INVOICE_AUTHORIZED_SIGNATURES_LABEL,
   INVOICE_ENQUIRY_FOOTER,
 } from '../utils/invoiceDocumentCopy'
-import { formatMoney, invoiceSubtotal, invoiceTotal, lineTotal } from '../utils/invoiceMath'
+import { formatMoney, hasInvoiceAdditionalDiscount, invoiceAdditionalDiscount, invoiceSubtotal, invoiceTotal, lineTotal } from '../utils/invoiceMath'
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -36,7 +36,8 @@ function PartyBlock({ title, name, address, phone, email }) {
 
 export default function InvoiceHtmlPreview({ invoice, company, customer }) {
   const sub = invoiceSubtotal(invoice.lineItems)
-  const discount = Number(invoice.additionalDiscount) || 0
+  const discount = invoiceAdditionalDiscount(invoice.additionalDiscount)
+  const showDiscount = hasInvoiceAdditionalDiscount(invoice.additionalDiscount)
   const total = invoiceTotal(invoice.lineItems, discount)
 
   const bankRows = [
@@ -163,15 +164,17 @@ export default function InvoiceHtmlPreview({ invoice, company, customer }) {
             </p>
           </div>
           <div className="w-full max-w-[240px] shrink-0 space-y-1.5 text-sm lg:text-right">
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Subtotal</span>
-              <span className="font-medium">{formatMoney(sub)}</span>
-            </div>
-            {discount > 0 ? (
-              <div className="flex justify-between gap-4">
-                <span className="text-slate-600">Discount</span>
-                <span className="font-medium">-{formatMoney(discount)}</span>
-              </div>
+            {showDiscount ? (
+              <>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-600">Subtotal</span>
+                  <span className="font-medium">{formatMoney(sub)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-600">Discount</span>
+                  <span className="font-medium">-{formatMoney(discount)}</span>
+                </div>
+              </>
             ) : null}
             <div className="flex justify-between gap-4 border-t border-slate-900 pt-2 text-base font-bold dark:border-slate-300">
               <span>Amount</span>

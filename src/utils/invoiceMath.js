@@ -8,9 +8,17 @@ export function invoiceSubtotal(lineItems) {
   return lineItems.reduce((sum, line) => sum + lineTotal(line), 0)
 }
 
+export function invoiceAdditionalDiscount(additionalDiscount) {
+  return Math.max(0, Number(additionalDiscount) || 0)
+}
+
+export function hasInvoiceAdditionalDiscount(additionalDiscount) {
+  return invoiceAdditionalDiscount(additionalDiscount) > 0
+}
+
 export function invoiceTotal(lineItems, additionalDiscount = 0) {
   const sub = invoiceSubtotal(lineItems)
-  const discount = Math.max(0, Number(additionalDiscount) || 0)
+  const discount = invoiceAdditionalDiscount(additionalDiscount)
   return Math.max(0, sub - discount)
 }
 

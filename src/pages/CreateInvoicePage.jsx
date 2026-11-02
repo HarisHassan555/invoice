@@ -4,8 +4,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import InvoiceLineItemsEditor from '../components/InvoiceLineItemsEditor'
 import InvoicePartySection from '../components/InvoicePartySection'
 import PageHeader from '../components/PageHeader'
+import ProductFormModal from '../components/ProductFormModal'
 import { inputClass } from '../components/MasterDataForm'
-import { addInvoice, nextInvoiceNumber } from '../store/slices/invoicesSlice'
+import { addInvoice, nextDraftNumber, nextInvoiceNumber } from '../store/slices/invoicesSlice'
+import { productToLine } from '../utils/invoiceLines'
 import { emptyCompany } from '../utils/companyFields'
 import {
   copyCompanySnapshot,
@@ -13,6 +15,43 @@ import {
   emptyCustomer,
 } from '../utils/invoiceParty'
 import { formatMoney, invoiceSubtotal, invoiceTotal } from '../utils/invoiceMath'
+
+function buildInvoicePayload({
+  companyMode,
+  customerMode,
+  companyId,
+  customerId,
+  manualCompany,
+  manualCustomer,
+  companies,
+  customers,
+  invoiceDate,
+  notes,
+  lines,
+  additionalDiscount,
+  isDraft,
+}) {
+  const companySource =
+    companyMode === 'select' ? companies.find((c) => c.id === companyId) : manualCompany
+  const customerSource =
+    customerMode === 'select' ? customers.find((c) => c.id === customerId) : manualCustomer
+
+  return {
+    invoiceDate,
+    dueDate: null,
+    notes: notes.trim() || null,
+    lineItems: lines.map((l) => ({ ...l })),
+    additionalDiscount: parseFloat(additionalDiscount) || 0,
+    companyId: companyMode === 'select' ? companyId || null : null,
+    customerId: customerMode === 'select' ? customerId || null : null,
+    companySnapshot: companySource ? copyCompanySnapshot(companySource) : null,
+    customerSnapshot: customerSource ? copyCustomerSnapshot(customerSource) : null,
+    paymentStatus: 'payment_pending',
+    deliveryStatus: 'pending_delivery',
+    status: 'pending_delivery',
+    isDraft,
+  }
+}
 
 export default function CreateInvoicePage() {
   const dispatch = useDispatch()
@@ -33,6 +72,7 @@ export default function CreateInvoicePage() {
   const [notes, setNotes] = useState('')
   const [additionalDiscount, setAdditionalDiscount] = useState('0')
   const [lines, setLines] = useState([])
+  const [productModalOpen, setProductModalOpen] = useState(false)
 
   const subtotal = useMemo(() => invoiceSubtotal(lines), [lines])
   const total = useMemo(
@@ -45,60 +85,67 @@ export default function CreateInvoicePage() {
   const customerValid =
     customerMode === 'select' ? Boolean(customerId) : Boolean(manualCustomer.name?.trim())
 
-  const canSubmit =
+  const canPublish =
     companyValid && customerValid && lines.length > 0 && lines.every((l) => l.quantity > 0)
 
-  const missingProducts = !products.length
+  function saveDraft() {
+    dispatch(
+      addInvoice({
+        ...buildInvoicePayload({
+          companyMode,
+          customerMode,
+          companyId,
+          customerId,
+          manualCompany,
+          manualCustomer,
+          companies,
+          customers,
+          invoiceDate,
+          notes,
+          lines,
+          additionalDiscount,
+          isDraft: true,
+        }),
+        invoiceNumber: nextDraftNumber(invoices),
+      }),
+    )
+    navigate('/invoices/drafts')
+  }
+
+  function publishInvoice(e) {
+    e.preventDefault()
+    if (!canPublish) return
+    dispatch(
+      addInvoice({
+        ...buildInvoicePayload({
+          companyMode,
+          customerMode,
+          companyId,
+          customerId,
+          manualCompany,
+          manualCustomer,
+          companies,
+          customers,
+          invoiceDate,
+          notes,
+          lines,
+          additionalDiscount,
+          isDraft: false,
+        }),
+        invoiceNumber: nextInvoiceNumber(invoices),
+      }),
+    )
+    navigate('/invoices')
+  }
 
   return (
     <div>
       <PageHeader
         title="New invoice"
-        description="Choose or type company and customer details, add products, then save."
+        description="Choose or type company and customer details, add products, then save or publish."
       />
 
-      {missingProducts ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
-          Add at least one{' '}
-          <Link className="font-medium underline" to="/master/product">
-            product
-          </Link>{' '}
-          in master data to pick line items.
-        </div>
-      ) : null}
-
-      <form
-        className="mt-6 space-y-6"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (!canSubmit) return
-          const invoiceNumber = nextInvoiceNumber(invoices)
-
-          const companySource =
-            companyMode === 'select' ? companies.find((c) => c.id === companyId) : manualCompany
-          const customerSource =
-            customerMode === 'select'
-              ? customers.find((c) => c.id === customerId)
-              : manualCustomer
-
-          dispatch(
-            addInvoice({
-              invoiceNumber,
-              invoiceDate,
-              dueDate: null,
-              notes: notes.trim() || null,
-              lineItems: lines.map((l) => ({ ...l })),
-              additionalDiscount: parseFloat(additionalDiscount) || 0,
-              companyId: companyMode === 'select' ? companyId : null,
-              customerId: customerMode === 'select' ? customerId : null,
-              companySnapshot: copyCompanySnapshot(companySource),
-              customerSnapshot: copyCustomerSnapshot(customerSource),
-              status: 'pending',
-            }),
-          )
-          navigate('/invoices')
-        }}
-      >
+      <form className="mt-6 space-y-6" onSubmit={publishInvoice}>
         <div className="grid gap-4 lg:grid-cols-2">
           <InvoicePartySection
             title="Your company"
@@ -162,7 +209,12 @@ export default function CreateInvoicePage() {
           </div>
         </div>
 
-        <InvoiceLineItemsEditor products={products} lines={lines} onChange={setLines} />
+        <InvoiceLineItemsEditor
+          products={products}
+          lines={lines}
+          onChange={setLines}
+          onRequestCreateProduct={() => setProductModalOpen(true)}
+        />
 
         <div className="panel flex flex-col items-end gap-2 p-6 text-sm">
           <div className="flex w-full max-w-xs justify-between">
@@ -186,14 +238,30 @@ export default function CreateInvoicePage() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={!canSubmit || missingProducts}
-          className="btn-primary px-5 py-2.5 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Create invoice
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={!canPublish}
+            className="btn-primary px-5 py-2.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Create invoice
+          </button>
+          <button type="button" className="btn-secondary px-5 py-2.5" onClick={saveDraft}>
+            Save draft
+          </button>
+          <Link to="/invoices/drafts" className="text-sm font-medium text-slate-600 underline dark:text-slate-400">
+            View draft invoices
+          </Link>
+        </div>
       </form>
+
+      <ProductFormModal
+        open={productModalOpen}
+        onClose={() => setProductModalOpen(false)}
+        onCreated={(product) => {
+          setLines((prev) => [...prev, productToLine(product)])
+        }}
+      />
     </div>
   )
 }

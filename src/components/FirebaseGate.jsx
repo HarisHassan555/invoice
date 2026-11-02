@@ -22,7 +22,7 @@ export default function FirebaseGate({ children }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+      <div className="flex h-full items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900 dark:border-slate-600 dark:border-t-white" />
           <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">Loading from database…</p>
@@ -33,7 +33,7 @@ export default function FirebaseGate({ children }) {
 
   if (sync.status === 'error') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+      <div className="flex h-full items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
         <div className="panel max-w-md p-8 text-center">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Cannot load data</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">

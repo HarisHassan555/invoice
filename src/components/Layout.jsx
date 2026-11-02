@@ -28,14 +28,14 @@ export default function Layout() {
   const navigate = useNavigate()
 
   return (
-    <div className="flex min-h-screen w-full">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-100">
-        <div className="border-b border-slate-800 px-5 py-5">
+    <div className="flex h-full w-full overflow-hidden">
+      <aside className="flex h-full w-64 shrink-0 flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-slate-100">
+        <div className="shrink-0 border-b border-slate-800 px-5 py-5">
           <h1 className="text-base font-semibold tracking-tight text-white">Invoice Manager</h1>
           <p className="mt-1 text-xs text-slate-400">Billing & PDF export</p>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-5">
+        <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-5">
           <div>
             <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               Invoices
@@ -44,6 +44,8 @@ export default function Layout() {
               <SidebarLink to="/invoices" end>
                 All invoices
               </SidebarLink>
+              <SidebarLink to="/invoices/drafts">Draft invoices</SidebarLink>
+              <SidebarLink to="/invoices/inactive">Inactive invoices</SidebarLink>
               <SidebarLink to="/invoices/new">New invoice</SidebarLink>
             </div>
           </div>
@@ -60,7 +62,7 @@ export default function Layout() {
           </div>
         </nav>
 
-        <div className="border-t border-slate-800">
+        <div className="shrink-0 border-t border-slate-800">
           <CloudSyncStatus />
           <div className="p-3 pt-0">
           <button
@@ -90,8 +92,8 @@ export default function Layout() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-slate-50 dark:bg-slate-950">
-        <main className="flex-1 overflow-auto px-6 py-8 sm:px-8 lg:px-10">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
+        <main className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-8 lg:px-10">
           <Outlet />
         </main>
       </div>

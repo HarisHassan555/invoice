@@ -4,7 +4,7 @@ import {
   INVOICE_AUTHORIZED_SIGNATURES_LABEL,
   INVOICE_ENQUIRY_FOOTER,
 } from '../utils/invoiceDocumentCopy'
-import { formatMoney, invoiceSubtotal, invoiceTotal, lineTotal } from '../utils/invoiceMath'
+import { formatMoney, hasInvoiceAdditionalDiscount, invoiceAdditionalDiscount, invoiceSubtotal, invoiceTotal, lineTotal } from '../utils/invoiceMath'
 
 const styles = StyleSheet.create({
   page: {
@@ -187,7 +187,8 @@ function BankDetails({ company }) {
 
 export default function InvoiceDocument({ invoice, company, customer }) {
   const sub = invoiceSubtotal(invoice.lineItems)
-  const discount = Number(invoice.additionalDiscount) || 0
+  const discount = invoiceAdditionalDiscount(invoice.additionalDiscount)
+  const showDiscount = hasInvoiceAdditionalDiscount(invoice.additionalDiscount)
   const total = invoiceTotal(invoice.lineItems, discount)
   const invoiceDate = invoice.invoiceDate
     ? formatDisplayDate(invoice.invoiceDate)
@@ -253,15 +254,17 @@ export default function InvoiceDocument({ invoice, company, customer }) {
             <Text style={styles.wordsText}>{formatAmountInWords(total)}</Text>
           </View>
           <View style={styles.totalsBox}>
-            <View style={styles.totalLine}>
-              <Text>Subtotal</Text>
-              <Text>{formatMoney(sub)}</Text>
-            </View>
-            {discount > 0 ? (
-              <View style={styles.totalLine}>
-                <Text>Discount</Text>
-                <Text>-{formatMoney(discount)}</Text>
-              </View>
+            {showDiscount ? (
+              <>
+                <View style={styles.totalLine}>
+                  <Text>Subtotal</Text>
+                  <Text>{formatMoney(sub)}</Text>
+                </View>
+                <View style={styles.totalLine}>
+                  <Text>Discount</Text>
+                  <Text>-{formatMoney(discount)}</Text>
+                </View>
+              </>
             ) : null}
             <View style={[styles.totalLine, styles.totalGrand]}>
               <Text>Amount</Text>
