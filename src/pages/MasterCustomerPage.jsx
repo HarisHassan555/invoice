@@ -5,6 +5,7 @@ import MasterDataForm from '../components/MasterDataForm'
 import Modal from '../components/Modal'
 import PageHeader from '../components/PageHeader'
 import { addCustomer, removeCustomer } from '../store/slices/customersSlice'
+import { confirmDelete, deleteAndSync } from '../utils/confirmDelete'
 
 const FIELDS = [
   { name: 'name', label: 'Customer name', required: true },
@@ -56,10 +57,19 @@ export default function MasterCustomerPage() {
             render: (row) => (
               <button
                 type="button"
-                onClick={() => dispatch(removeCustomer(row.id))}
-                className="text-sm text-red-600 hover:text-red-800"
+                onClick={() => {
+                  if (
+                    !confirmDelete(
+                      `Delete customer "${row.name}" permanently? This cannot be undone.`,
+                    )
+                  ) {
+                    return
+                  }
+                  void deleteAndSync(removeCustomer(row.id))
+                }}
+                className="text-sm text-red-600 hover:text-red-800 dark:text-red-400"
               >
-                Remove
+                Delete
               </button>
             ),
           },

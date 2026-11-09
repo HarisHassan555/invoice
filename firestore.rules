@@ -1,51 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /accounts/{accountId}/companies/{docId} {
-      allow read, write: if accountId == 'nouman';
-    }
-    match /accounts/{accountId}/customers/{docId} {
-      allow read, write: if accountId == 'nouman';
-    }
-    match /accounts/{accountId}/products/{docId} {
-      allow read, write: if accountId == 'nouman';
-    }
-    match /accounts/{accountId}/invoices/{docId} {
-      allow read, write: if accountId == 'nouman';
-    }
-    match /accounts/{accountId}/data/{docId} {
+
+    // App data for this invoice project (username path: accounts/nouman/...)
+    // Covers companies, customers, products, invoices, data, meta, and any future subcollections.
+    match /accounts/{accountId}/{document=**} {
       allow read, write: if accountId == 'nouman';
     }
 
-    match /users/{userId}/companies/{docId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /users/{userId}/customers/{docId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /users/{userId}/products/{docId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /users/{userId}/invoices/{docId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /users/{userId}/data/{docId} {
+    // Optional: per-signed-in-user paths (if anonymous / email auth is used later)
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /devices/{deviceId}/companies/{docId} {
-      allow read, write: if true;
-    }
-    match /devices/{deviceId}/customers/{docId} {
-      allow read, write: if true;
-    }
-    match /devices/{deviceId}/products/{docId} {
-      allow read, write: if true;
-    }
-    match /devices/{deviceId}/invoices/{docId} {
-      allow read, write: if true;
-    }
-    match /devices/{deviceId}/data/{docId} {
+    // Optional: device-scoped fallback paths
+    match /devices/{deviceId}/{document=**} {
       allow read, write: if true;
     }
   }

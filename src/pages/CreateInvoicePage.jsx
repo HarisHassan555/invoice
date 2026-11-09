@@ -8,7 +8,7 @@ import ProductFormModal from '../components/ProductFormModal'
 import { inputClass } from '../components/MasterDataForm'
 import { addInvoice, nextDraftNumber, nextInvoiceNumber } from '../store/slices/invoicesSlice'
 import { productToLine } from '../utils/invoiceLines'
-import { emptyCompany } from '../utils/companyFields'
+import { companyPhonesForForm, emptyCompany } from '../utils/companyFields'
 import {
   copyCompanySnapshot,
   copyCustomerSnapshot,
@@ -88,6 +88,31 @@ export default function CreateInvoicePage() {
   const canPublish =
     companyValid && customerValid && lines.length > 0 && lines.every((l) => l.quantity > 0)
 
+  function applyCompanyInvoiceDefaults(row) {
+    if (!row) {
+      setNotes('')
+      return
+    }
+    setNotes(row.defaultInvoiceNotes ?? '')
+  }
+
+  function selectCompany(id) {
+    setCompanyId(id)
+    if (!id) {
+      applyCompanyInvoiceDefaults(null)
+      return
+    }
+    const row = companies.find((c) => c.id === id)
+    if (row) {
+      setManualCompany({
+        ...emptyCompany,
+        ...row,
+        phones: companyPhonesForForm(row),
+      })
+      applyCompanyInvoiceDefaults(row)
+    }
+  }
+
   function saveDraft() {
     dispatch(
       addInvoice({
@@ -155,13 +180,26 @@ export default function CreateInvoicePage() {
               setCompanyMode(m)
               if (m === 'select') {
                 setManualCompany(emptyCompany)
+                if (companyId) {
+                  const row = companies.find((c) => c.id === companyId)
+                  applyCompanyInvoiceDefaults(row)
+                } else {
+                  applyCompanyInvoiceDefaults(null)
+                }
               } else if (companyId) {
                 const row = companies.find((c) => c.id === companyId)
-                if (row) setManualCompany({ ...emptyCompany, ...row })
+                if (row) {
+                  setManualCompany({
+                    ...emptyCompany,
+                    ...row,
+                    phones: companyPhonesForForm(row),
+                  })
+                  applyCompanyInvoiceDefaults(row)
+                }
               }
             }}
             selectedId={companyId}
-            onSelectId={setCompanyId}
+            onSelectId={selectCompany}
             options={companies}
             manualValues={manualCompany}
             onManualChange={setManualCompany}
@@ -203,7 +241,7 @@ export default function CreateInvoicePage() {
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Payment terms, thank-you message, etc."
+                placeholder="Prefilled from company master data when you pick a company; edit as needed."
               />
             </label>
           </div>

@@ -8,6 +8,7 @@ import ProductFormModal from '../components/ProductFormModal'
 import PageHeader from '../components/PageHeader'
 import { inputClass } from '../components/MasterDataForm'
 import { nextInvoiceNumber, removeInvoice, updateInvoice } from '../store/slices/invoicesSlice'
+import { confirmDelete, deleteAndSync } from '../utils/confirmDelete'
 import { isInvoiceDraft, isInvoiceInactive } from '../utils/invoiceDraft'
 import { createPaymentStatusActivityEntry } from '../utils/invoiceActivityLog'
 import { canRecordDeliveryProgress, deliveryTotalsForInvoice } from '../utils/invoiceDeliveryLog'
@@ -265,6 +266,23 @@ export default function EditInvoicePage() {
               >
                 Save draft
               </button>
+              <button
+                type="button"
+                className="btn-secondary px-5 py-2.5 text-red-700 dark:text-red-400"
+                onClick={async () => {
+                  if (
+                    !confirmDelete(
+                      `Delete draft ${invoice.invoiceNumber}? This cannot be undone.`,
+                    )
+                  ) {
+                    return
+                  }
+                  await deleteAndSync(removeInvoice(invoice.id))
+                  navigate('/invoices/drafts')
+                }}
+              >
+                Delete
+              </button>
               <Link to="/invoices/drafts" className="btn-secondary">
                 Back to drafts
               </Link>
@@ -296,15 +314,15 @@ export default function EditInvoicePage() {
               <button
                 type="button"
                 className="btn-secondary px-5 py-2.5 text-red-700 dark:text-red-400"
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    !window.confirm(
+                    !confirmDelete(
                       `Delete invoice ${invoice.invoiceNumber} permanently? This cannot be undone.`,
                     )
                   ) {
                     return
                   }
-                  dispatch(removeInvoice(invoice.id))
+                  await deleteAndSync(removeInvoice(invoice.id))
                   navigate(inactive ? '/invoices/inactive' : '/invoices')
                 }}
               >

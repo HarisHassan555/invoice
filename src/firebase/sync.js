@@ -17,6 +17,7 @@ import { clearLegacyLocalState, loadLegacyLocalState } from '../store/storage'
 import { mergeRemoteWithLocal } from './cloudMerge'
 import { sanitizeSliceForCloud } from './cloudSanitize'
 import { auth, db } from './config'
+
 const SLICES = ['companies', 'customers', 'products', 'invoices']
 
 let remoteUpdate = false
@@ -49,6 +50,12 @@ function payloadToDispatches(payload, dispatch) {
   dispatch(setCustomerItems(payload.customers ?? []))
   dispatch(setProductItems(payload.products ?? []))
   dispatch(setInvoiceItems(payload.invoices ?? []))
+}
+
+function rememberSyncedIds(itemsBySlice) {
+  for (const slice of SLICES) {
+    lastSyncedIds[slice] = new Set((itemsBySlice[slice] ?? []).map((i) => i.id).filter(Boolean))
+  }
 }
 
 function ensureStoreSubscription(store) {
@@ -94,18 +101,67 @@ async function loadRemoteState(pathSegments) {
   return fromCollections
 }
 
+async function isMasterDataSeeded(pathSegments) {
+  try {
+    const snap = await getDoc(doc(db, ...pathSegments, 'meta', 'bootstrap'))
+    return snap.exists() && snap.data()?.masterDataSeeded === true
+  } catch {
+    return false
+  }
+}
+
+async function markMasterDataSeeded(pathSegments) {
+  try {
+    await setDoc(
+      doc(db, ...pathSegments, 'meta', 'bootstrap'),
+      { masterDataSeeded: true, seededAt: new Date().toISOString() },
+      { merge: true },
+    )
+  } catch (err) {
+    console.warn('Could not mark master data as seeded:', err)
+  }
+}
+
+async function maybeSeedMasterData(store, pathSegments, remoteState) {
+  const remoteHasMaster =
+    (remoteState.customers?.length ?? 0) > 0 || (remoteState.products?.length ?? 0) > 0
+
+  if (remoteHasMaster) {
+    await markMasterDataSeeded(pathSegments)
+    return false
+  }
+
+  if (await isMasterDataSeeded(pathSegments)) return false
+
+  remoteUpdate = true
+  const seeded = seedMasterDataIfEmpty(store)
+  remoteUpdate = false
+
+  if (seeded) {
+    await markMasterDataSeeded(pathSegments)
+  }
+  return seeded
+}
+
 async function writeCollection(pathSegments, sliceName, items) {
   const sanitized = sanitizeSliceForCloud(sliceName, items)
-  const newIds = new Set(sanitized.map((i) => i.id))
+  const newIds = new Set(sanitized.map((i) => i.id).filter(Boolean))
+  const previousIds = lastSyncedIds[sliceName] ?? new Set()
 
-  for (const id of lastSyncedIds[sliceName]) {
+  for (const id of previousIds) {
     if (!newIds.has(id)) {
-      await deleteDoc(doc(db, ...pathSegments, sliceName, id))
+      try {
+        await deleteDoc(doc(db, ...pathSegments, sliceName, id))
+      } catch (err) {
+        console.error(`Failed to delete ${sliceName}/${id}:`, err)
+        throw err
+      }
     }
   }
 
   for (const item of sanitized) {
     const { id, ...body } = item
+    if (!id) continue
     await setDoc(doc(db, ...pathSegments, sliceName, id), body, { merge: true })
   }
 
@@ -131,6 +187,7 @@ async function pushToCloud(store) {
 export async function flushCloudWrite(store) {
   if (!hydrated) return false
   clearTimeout(writeTimer)
+  writeTimer = null
   return pushToCloud(store)
 }
 
@@ -158,13 +215,30 @@ async function loadFromFirestore(pathSegments, store) {
 
   const merged = mergeRemoteWithLocal(localState, remoteState)
 
+  // Track remote IDs before push so local deletes are compared correctly.
+  rememberSyncedIds({
+    companies: remoteState.companies ?? [],
+    customers: remoteState.customers ?? [],
+    products: remoteState.products ?? [],
+    invoices: remoteState.invoices ?? [],
+  })
+
   remoteUpdate = true
   payloadToDispatches(merged, store.dispatch)
   remoteUpdate = false
 
+  rememberSyncedIds({
+    companies: merged.companies ?? [],
+    customers: merged.customers ?? [],
+    products: merged.products ?? [],
+    invoices: merged.invoices ?? [],
+  })
+
   await pushToCloud(store)
 
   if (legacy) clearLegacyLocalState()
+
+  return remoteState
 }
 
 async function resolveBasePath() {
@@ -187,11 +261,9 @@ async function resolveBasePath() {
 async function attachCloudSync(store) {
   const { path, mode } = await resolveBasePath()
   basePath = path
-  await loadFromFirestore(path, store)
+  const remoteState = await loadFromFirestore(path, store)
 
-  remoteUpdate = true
-  const seeded = seedMasterDataIfEmpty(store)
-  remoteUpdate = false
+  const seeded = await maybeSeedMasterData(store, path, remoteState)
   if (seeded) {
     await pushToCloud(store)
   }
@@ -210,10 +282,8 @@ export async function retryCloudSync(store) {
       basePath = path
       cloudSyncState.mode = mode
     }
-    await loadFromFirestore(basePath, store)
-    remoteUpdate = true
-    const seeded = seedMasterDataIfEmpty(store)
-    remoteUpdate = false
+    const remoteState = await loadFromFirestore(basePath, store)
+    const seeded = await maybeSeedMasterData(store, basePath, remoteState)
     if (seeded) await pushToCloud(store)
     hydrated = true
     setCloudStatus('connected', null, cloudSyncState.mode)

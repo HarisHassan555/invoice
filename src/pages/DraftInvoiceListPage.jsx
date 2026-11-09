@@ -1,15 +1,15 @@
 import { useMemo } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import DataTable from '../components/DataTable'
 import PageHeader from '../components/PageHeader'
 import { removeInvoice } from '../store/slices/invoicesSlice'
 import { draftInvoices } from '../utils/invoiceDraft'
+import { confirmDelete, deleteAndSync } from '../utils/confirmDelete'
 import { formatMoney, invoiceTotal } from '../utils/invoiceMath'
 import { partyDisplayName, resolveCompany, resolveCustomer } from '../utils/invoiceParty'
 
 export default function DraftInvoiceListPage() {
-  const dispatch = useDispatch()
   const allInvoices = useSelector((s) => s.invoices.items)
   const companies = useSelector((s) => s.companies.items)
   const customers = useSelector((s) => s.customers.items)
@@ -91,10 +91,13 @@ export default function DraftInvoiceListPage() {
                   className="btn-secondary inline-flex px-3 py-1.5 text-red-700 dark:text-red-400"
                   onClick={() => {
                     if (
-                      window.confirm(`Delete draft ${row.invoiceNumber}? This cannot be undone.`)
+                      !confirmDelete(
+                        `Delete draft ${row.invoiceNumber}? This cannot be undone.`,
+                      )
                     ) {
-                      dispatch(removeInvoice(row.id))
+                      return
                     }
+                    void deleteAndSync(removeInvoice(row.id))
                   }}
                 >
                   Delete

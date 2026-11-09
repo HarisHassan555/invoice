@@ -1,8 +1,9 @@
 import { formatAmountInWords } from '../utils/amountInWords'
+import { companyEnquiryFooter } from '../utils/companyFields'
 import {
   INVOICE_AUTHORIZED_SIGNATURES_LABEL,
-  INVOICE_ENQUIRY_FOOTER,
 } from '../utils/invoiceDocumentCopy'
+import { normalizeCompanyPhones } from '../utils/companyFields'
 import { formatMoney, hasInvoiceAdditionalDiscount, invoiceAdditionalDiscount, invoiceSubtotal, invoiceTotal, lineTotal } from '../utils/invoiceMath'
 
 function formatDate(iso) {
@@ -14,7 +15,8 @@ function formatDate(iso) {
   })
 }
 
-function PartyBlock({ title, name, address, phone, email }) {
+function PartyBlock({ title, name, address, phone, phones, email }) {
+  const phoneLines = phones?.length ? phones : phone ? [phone] : []
   return (
     <section>
       <h3 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wide text-slate-700 dark:border-slate-600 dark:text-slate-300">
@@ -27,7 +29,9 @@ function PartyBlock({ title, name, address, phone, email }) {
         </p>
       ) : null}
       <div className="mt-2 space-y-0.5 text-sm text-slate-600 dark:text-slate-400">
-        {phone ? <p>{phone}</p> : null}
+        {phoneLines.map((num) => (
+          <p key={num}>{num}</p>
+        ))}
         {email ? <p>{email}</p> : null}
       </div>
     </section>
@@ -68,7 +72,9 @@ export default function InvoiceHtmlPreview({ invoice, company, customer }) {
                 </p>
               ) : null}
               <div className="mt-1 space-y-0.5 text-sm text-slate-600 dark:text-slate-400">
-                {company?.phone ? <p>{company.phone}</p> : null}
+                {normalizeCompanyPhones(company).map((num) => (
+                  <p key={num}>{num}</p>
+                ))}
                 {company?.email ? <p>{company.email}</p> : null}
               </div>
             </div>
@@ -96,7 +102,7 @@ export default function InvoiceHtmlPreview({ invoice, company, customer }) {
           title="Billed by"
           name={company?.name}
           address={company?.address}
-          phone={company?.phone}
+          phones={normalizeCompanyPhones(company)}
           email={company?.email}
         />
         <PartyBlock
@@ -217,7 +223,7 @@ export default function InvoiceHtmlPreview({ invoice, company, customer }) {
           {INVOICE_AUTHORIZED_SIGNATURES_LABEL}
         </p>
         <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-          {INVOICE_ENQUIRY_FOOTER}
+          {companyEnquiryFooter(company)}
         </p>
       </footer>
     </article>

@@ -5,6 +5,7 @@ import DataTable from '../components/DataTable'
 import PageHeader from '../components/PageHeader'
 import { removeInvoice, updateInvoice } from '../store/slices/invoicesSlice'
 import { inactiveInvoices } from '../utils/invoiceDraft'
+import { confirmDelete, deleteAndSync } from '../utils/confirmDelete'
 import { formatMoney, invoiceTotal } from '../utils/invoiceMath'
 import { partyDisplayName, resolveCompany, resolveCustomer } from '../utils/invoiceParty'
 
@@ -84,12 +85,13 @@ export default function InactiveInvoiceListPage() {
                   className="btn-secondary inline-flex px-3 py-1.5 text-red-700 dark:text-red-400"
                   onClick={() => {
                     if (
-                      window.confirm(
+                      !confirmDelete(
                         `Delete invoice ${row.invoiceNumber} permanently? This cannot be undone.`,
                       )
                     ) {
-                      dispatch(removeInvoice(row.id))
+                      return
                     }
+                    void deleteAndSync(removeInvoice(row.id))
                   }}
                 >
                   Delete

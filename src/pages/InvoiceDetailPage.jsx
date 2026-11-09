@@ -10,8 +10,10 @@ import ShareInvoiceModal from '../components/ShareInvoiceModal'
 import PageHeader from '../components/PageHeader'
 import InvoiceDocument from '../pdf/InvoiceDocument'
 import { removeInvoice, updateInvoice } from '../store/slices/invoicesSlice'
+import { confirmDelete, deleteAndSync } from '../utils/confirmDelete'
 import { generateInvoicePdfBlob, printPdfBlob } from '../utils/invoicePdf'
 import { isInvoiceDraft, isInvoiceInactive } from '../utils/invoiceDraft'
+import { normalizeCompanyPhones } from '../utils/companyFields'
 import { createPaymentStatusActivityEntry } from '../utils/invoiceActivityLog'
 import { canRecordDeliveryProgress, deliveryTotalsForInvoice } from '../utils/invoiceDeliveryLog'
 import { formatMoney, invoiceTotal } from '../utils/invoiceMath'
@@ -92,15 +94,15 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  function deleteInvoice() {
+  async function deleteInvoice() {
     if (
-      !window.confirm(
+      !confirmDelete(
         `Delete invoice ${invoice.invoiceNumber} permanently? This cannot be undone.`,
       )
     ) {
       return
     }
-    dispatch(removeInvoice(invoice.id))
+    await deleteAndSync(removeInvoice(invoice.id))
     navigate(inactive ? '/invoices/inactive' : '/invoices')
   }
 
@@ -240,7 +242,11 @@ export default function InvoiceDetailPage() {
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <DetailStat label="Customer" value={customer?.name ?? '—'} sub={customer?.email} />
-            <DetailStat label="Your company" value={company?.name ?? '—'} sub={company?.phone} />
+            <DetailStat
+              label="Your company"
+              value={company?.name ?? '—'}
+              sub={normalizeCompanyPhones(company).join(' · ') || undefined}
+            />
             <DetailStat label="Invoice date" value={invoiceDateLabel} />
           </div>
         </aside>

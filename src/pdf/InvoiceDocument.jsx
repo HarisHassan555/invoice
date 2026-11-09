@@ -2,8 +2,9 @@ import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/render
 import { formatAmountInWords } from '../utils/amountInWords'
 import {
   INVOICE_AUTHORIZED_SIGNATURES_LABEL,
-  INVOICE_ENQUIRY_FOOTER,
 } from '../utils/invoiceDocumentCopy'
+import { companyEnquiryFooter } from '../utils/companyFields'
+import { normalizeCompanyPhones } from '../utils/companyFields'
 import { formatMoney, hasInvoiceAdditionalDiscount, invoiceAdditionalDiscount, invoiceSubtotal, invoiceTotal, lineTotal } from '../utils/invoiceMath'
 
 const styles = StyleSheet.create({
@@ -158,7 +159,11 @@ function PartyBlock({ title, party }) {
       <Text style={styles.partyHeading}>{title}</Text>
       <Text style={styles.partyName}>{party.name}</Text>
       {party.address ? <Text style={styles.line}>{party.address}</Text> : null}
-      {party.phone ? <Text style={styles.line}>{party.phone}</Text> : null}
+      {normalizeCompanyPhones(party).map((num) => (
+        <Text key={num} style={styles.line}>
+          {num}
+        </Text>
+      ))}
       {party.email ? <Text style={styles.line}>{party.email}</Text> : null}
     </View>
   )
@@ -202,7 +207,11 @@ export default function InvoiceDocument({ invoice, company, customer }) {
             <View style={{ flex: 1 }}>
               <Text style={styles.companyName}>{company?.name ?? '—'}</Text>
               {company?.address ? <Text style={styles.line}>{company.address}</Text> : null}
-              {company?.phone ? <Text style={styles.line}>{company.phone}</Text> : null}
+              {normalizeCompanyPhones(company).map((num) => (
+                <Text key={num} style={styles.line}>
+                  {num}
+                </Text>
+              ))}
               {company?.email ? <Text style={styles.line}>{company.email}</Text> : null}
             </View>
           </View>
@@ -283,7 +292,7 @@ export default function InvoiceDocument({ invoice, company, customer }) {
             <View style={{ height: 28 }} />
           )}
           <Text style={styles.footerAuthLabel}>{INVOICE_AUTHORIZED_SIGNATURES_LABEL}</Text>
-          <Text style={styles.footerLine}>{INVOICE_ENQUIRY_FOOTER}</Text>
+          <Text style={styles.footerLine}>{companyEnquiryFooter(company)}</Text>
         </View>
       </Page>
     </Document>
