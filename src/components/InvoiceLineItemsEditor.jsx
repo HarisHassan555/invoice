@@ -1,9 +1,108 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { inputClass } from './MasterDataForm'
 import { productToLine } from '../utils/invoiceLines'
 import { formatMoney, lineTotal } from '../utils/invoiceMath'
 import { clampDeliveredQuantity, pendingQuantity } from '../utils/invoiceStatus'
 
 export const CREATE_PRODUCT_OPTION = '__create_product__'
+
+function ProductSearchPicker({ products, disabled, onPick, onRequestCreateProduct }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return products
+    return products.filter((p) => {
+      const name = String(p.name ?? '').toLowerCase()
+      const desc = String(p.description ?? '').toLowerCase()
+      return name.includes(q) || desc.includes(q)
+    })
+  }, [products, query])
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e) => {
+      if (!rootRef.current?.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [open])
+
+  function pickProduct(product) {
+    onPick?.(product.id)
+    setQuery('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={rootRef} className="relative min-w-[200px] flex-1">
+      <span className="field-label">Add product</span>
+      <input
+        type="search"
+        className={inputClass}
+        value={query}
+        disabled={disabled}
+        placeholder="Search products…"
+        autoComplete="off"
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setOpen(true)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setOpen(false)
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            if (filtered.length === 1) pickProduct(filtered[0])
+          }
+        }}
+      />
+      {open ? (
+        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-900">
+          {filtered.length === 0 ? (
+            <p className="px-3 py-2.5 text-sm text-slate-500 dark:text-slate-400">
+              No products match “{query.trim()}”.
+            </p>
+          ) : (
+            <ul className="py-1">
+              {filtered.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => pickProduct(p)}
+                  >
+                    <span className="min-w-0 truncate font-medium text-slate-900 dark:text-slate-100">
+                      {p.name}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                      {formatMoney(Number(p.price))}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {onRequestCreateProduct ? (
+            <button
+              type="button"
+              className="w-full border-t border-slate-100 px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => {
+                setOpen(false)
+                setQuery('')
+                onRequestCreateProduct()
+              }}
+            >
+              + Create new product…
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 export default function InvoiceLineItemsEditor({
   products,
@@ -68,39 +167,17 @@ export default function InvoiceLineItemsEditor({
   return (
     <div className="panel p-6">
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <label className="min-w-[200px] flex-1">
-          <span className="field-label">Add product</span>
-          <select
-            className={inputClass}
-            defaultValue=""
-            disabled={disabled || (missingProducts && !onRequestCreateProduct)}
-            onChange={(e) => {
-              const value = e.target.value
-              if (value === CREATE_PRODUCT_OPTION) {
-                onRequestCreateProduct?.()
-                e.target.value = ''
-                return
-              }
-              addProductLine(value)
-              e.target.value = ''
-            }}
-          >
-            <option value="">Choose product…</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} — {formatMoney(Number(p.price))}
-              </option>
-            ))}
-            {onRequestCreateProduct ? (
-              <option value={CREATE_PRODUCT_OPTION}>+ Create new product…</option>
-            ) : null}
-          </select>
-        </label>
+        <ProductSearchPicker
+          products={products}
+          disabled={disabled || (missingProducts && !onRequestCreateProduct)}
+          onPick={addProductLine}
+          onRequestCreateProduct={onRequestCreateProduct}
+        />
       </div>
 
       {lines.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          No line items yet. Add a product from the list
+          No line items yet. Search and pick a product
           {onRequestCreateProduct ? ' or create a new one' : ''}.
         </p>
       ) : (
