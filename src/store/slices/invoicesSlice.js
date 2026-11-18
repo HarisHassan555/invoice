@@ -7,12 +7,11 @@ const initialState = {
 }
 
 function nextInvoiceNumber(existing) {
-  const year = new Date().getFullYear()
-  const prefix = `INV-${year}-`
+  const prefix = 'JY-'
   const nums = existing
     .filter((inv) => !inv.isDraft)
     .map((inv) => inv.invoiceNumber)
-    .filter((n) => n?.startsWith(prefix))
+    .filter((n) => typeof n === 'string' && n.startsWith(prefix))
     .map((n) => parseInt(n.slice(prefix.length), 10))
     .filter((n) => !Number.isNaN(n))
   const next = nums.length ? Math.max(...nums) + 1 : 1

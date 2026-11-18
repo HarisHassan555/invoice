@@ -113,6 +113,15 @@ export default function InvoiceLineItemsEditor({
   onRequestCreateProduct,
 }) {
   const setLines = onChange
+  const lastRowRef = useRef(null)
+  const prevLineCountRef = useRef(lines.length)
+
+  useEffect(() => {
+    if (lines.length > prevLineCountRef.current) {
+      lastRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+    prevLineCountRef.current = lines.length
+  }, [lines.length])
 
   const addProductLine = (productId) => {
     if (!productId) return
@@ -166,22 +175,13 @@ export default function InvoiceLineItemsEditor({
 
   return (
     <div className="panel p-6">
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <ProductSearchPicker
-          products={products}
-          disabled={disabled || (missingProducts && !onRequestCreateProduct)}
-          onPick={addProductLine}
-          onRequestCreateProduct={onRequestCreateProduct}
-        />
-      </div>
-
       {lines.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          No line items yet. Search and pick a product
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+          No line items yet. Search and pick a product below
           {onRequestCreateProduct ? ' or create a new one' : ''}.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="mb-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-slate-700 dark:text-slate-400">
@@ -199,8 +199,11 @@ export default function InvoiceLineItemsEditor({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {lines.map((line) => (
-                <tr key={line.lineId ?? line.productId}>
+              {lines.map((line, index) => (
+                <tr
+                  key={line.lineId ?? line.productId}
+                  ref={index === lines.length - 1 ? lastRowRef : null}
+                >
                   <td className="py-3 pr-3">
                     <div className="flex items-center gap-3">
                       {line.imageDataUrl ? (
@@ -288,6 +291,15 @@ export default function InvoiceLineItemsEditor({
           </table>
         </div>
       )}
+
+      <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+        <ProductSearchPicker
+          products={products}
+          disabled={disabled || (missingProducts && !onRequestCreateProduct)}
+          onPick={addProductLine}
+          onRequestCreateProduct={onRequestCreateProduct}
+        />
+      </div>
     </div>
   )
 }
